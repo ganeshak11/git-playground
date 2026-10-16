@@ -36,7 +36,6 @@ if [[ -n "$(git log --merges origin/main -1 --oneline 2>/dev/null)" ]]; then
 fi
 
 # 6. Local main must be pushed to origin/main
-local local_head remote_head
 local_head="$(git rev-parse HEAD)"
 remote_head="$(git -C "${SANDBOX}/remote.git" rev-parse main 2>/dev/null)"
 if [[ "$local_head" != "$remote_head" ]]; then
@@ -44,7 +43,6 @@ if [[ "$local_head" != "$remote_head" ]]; then
 fi
 
 # 7. Local feature/notifications must be pushed to origin/feature/notifications
-local local_feat remote_feat
 local_feat="$(git rev-parse feature/notifications 2>/dev/null)"
 remote_feat="$(git -C "${SANDBOX}/remote.git" rev-parse feature/notifications 2>/dev/null)"
 if [[ "$local_feat" != "$remote_feat" ]]; then

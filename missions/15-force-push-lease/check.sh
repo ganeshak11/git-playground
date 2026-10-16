@@ -9,7 +9,6 @@ assert_clean
 assert_on_branch "feature/export-csv"
 
 # 2. Remote tracking ref must match local HEAD
-local local_head remote_head
 local_head="$(git rev-parse HEAD)"
 remote_head="$(git -C "${SANDBOX}/remote.git" rev-parse feature/export-csv 2>/dev/null)"
 

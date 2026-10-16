@@ -20,7 +20,6 @@ assert_file_contains "receipt.py" "generate_receipt"
 assert_file_contains "README.md" "support@example.com"
 
 # 4. History must not have been rewritten with reset; the bad commit must still be in history
-local bad_commit
 bad_commit="$(play_recall "bad_commit_hash")"
 if [[ -n "$bad_commit" ]]; then
     assert_reachable "$bad_commit" "HEAD"
@@ -31,7 +30,6 @@ assert_commit_count "HEAD" 5
 assert_msg "HEAD" "Revert"
 
 # 6. Must be pushed to origin/main
-local local_head remote_head
 local_head="$(git rev-parse HEAD)"
 remote_head="$(git -C "${SANDBOX}/remote.git" rev-parse main 2>/dev/null)"
 if [[ "$local_head" != "$remote_head" ]]; then

@@ -57,7 +57,8 @@ for mission_dir in "${SCRIPT_DIR}"/../missions/*/; do
     SANDBOX="${SANDBOX_ROOT}/${mission_num}"
     export SANDBOX
     if ! solution_output="$(
-        cd "$SANDBOX"
+        cd "$SANDBOX" || exit 1
+        # shellcheck source=/dev/null
         source "${mission_dir}/solution.sh" 2>&1
     )"; then
         echo "  FAIL: solution.sh crashed"

@@ -9,7 +9,7 @@ if [[ ! -d "${SANDBOX}/repo/.git" ]]; then
     fail "No git repository found at 'repo/'."
 fi
 
-cd "${SANDBOX}/repo"
+cd "${SANDBOX}/repo" || fail "Cannot enter repo directory."
 
 # 1. Clean working tree
 assert_clean "${SANDBOX}/repo"

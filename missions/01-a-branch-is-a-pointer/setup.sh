@@ -5,7 +5,7 @@
 make_repo "repo"
 
 (
-    cd "${SANDBOX}/repo"
+    cd "${SANDBOX}/repo" || exit 1
 
     # Commit 1 (root)
     echo "# Task Tracker" > README.md

@@ -14,7 +14,7 @@ make_bare_remote "remote.git"
 git clone "${SANDBOX}/remote.git" "${SANDBOX}/repo" >/dev/null 2>&1
 
 (
-    cd "${SANDBOX}/repo"
+    cd "${SANDBOX}/repo" || exit 1
     git config user.name "You"
     git config user.email "you@example.com"
     git config core.autocrlf false
@@ -74,7 +74,7 @@ EOF
 tmp_alex="${SANDBOX}/.alex-tmp"
 git clone "${SANDBOX}/remote.git" "$tmp_alex" >/dev/null 2>&1
 (
-    cd "$tmp_alex"
+    cd "$tmp_alex" || exit 1
     git config user.name "Alex"
     git config user.email "alex@example.com"
     git config core.autocrlf false

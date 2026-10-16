@@ -7,7 +7,6 @@
 cd "${SANDBOX}/repo" || fail "Cannot enter repo directory."
 
 # 1. Working tree clean (ignoring INCIDENT.md whether tracked or untracked)
-local dirty
 dirty="$(git status --porcelain 2>/dev/null | grep -v "INCIDENT\.md" || true)"
 if [[ -n "$dirty" ]]; then
     fail "Working tree has uncommitted modifications. Run 'git status' to inspect."
@@ -25,7 +24,6 @@ fi
 assert_msg "HEAD" "Revert"
 
 # 5. Local main must be pushed to origin/main
-local local_head remote_head
 local_head="$(git rev-parse HEAD)"
 remote_head="$(git -C "${SANDBOX}/remote.git" rev-parse main 2>/dev/null)"
 if [[ "$local_head" != "$remote_head" ]]; then

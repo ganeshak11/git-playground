@@ -11,7 +11,7 @@ if [[ ! -d "${SANDBOX}/repo/.git" ]]; then
     fail "No git repository found at 'repo/'."
 fi
 
-cd "${SANDBOX}/repo"
+cd "${SANDBOX}/repo" || fail "Cannot enter repo directory."
 
 # 1. Working tree clean & on main branch
 assert_clean "${SANDBOX}/repo"

@@ -9,7 +9,7 @@
 make_repo "repo"
 
 (
-    cd "${SANDBOX}/repo"
+    cd "${SANDBOX}/repo" || exit 1
 
     # Commit 1: v1.0 base with passing tests
     cat << 'EOF' > .gitignore

@@ -5,7 +5,7 @@
 make_repo "repo"
 
 (
-    cd "${SANDBOX}/repo"
+    cd "${SANDBOX}/repo" || exit 1
 
     # 1. Baseline files
     cat << 'EOF' > README.md

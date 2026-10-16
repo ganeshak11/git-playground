@@ -5,7 +5,6 @@
 cd "${SANDBOX}/repo" || fail "Cannot enter repo directory."
 
 # 1. Working tree clean (ignoring culprit.txt and pycache whether tracked or untracked)
-local dirty
 dirty="$(git status --porcelain 2>/dev/null | grep -Ev "(culprit\.txt|__pycache__|\.pyc)" || true)"
 if [[ -n "$dirty" ]]; then
     fail "Working tree has uncommitted modifications. Run 'git status' to inspect."
@@ -22,7 +21,6 @@ fi
 # 4. culprit.txt must exist and contain the bad commit hash
 assert_file_exists "culprit.txt"
 
-local expected_culprit user_culprit
 expected_culprit="$(play_recall "culprit_hash")"
 user_culprit="$(tr -d ' \r\n' < culprit.txt)"
 

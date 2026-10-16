@@ -139,7 +139,8 @@ cmd_start() {
 
     # Run setup in a subshell so it can't corrupt our shell state
     (
-        cd "$SANDBOX"
+        cd "$SANDBOX" || exit 1
+        # shellcheck source=/dev/null
         source "${mission_dir}/setup.sh"
     )
 
@@ -171,7 +172,8 @@ cmd_check() {
     # Run check in a subshell — fail() exits the subshell with 1,
     # and set -e propagates it to us.
     (
-        cd "$SANDBOX"
+        cd "$SANDBOX" || exit 1
+        # shellcheck source=/dev/null
         source "${mission_dir}/check.sh"
     )
 

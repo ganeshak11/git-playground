@@ -6,7 +6,7 @@
 make_repo "repo"
 
 (
-    cd "${SANDBOX}/repo"
+    cd "${SANDBOX}/repo" || exit 1
 
     # Base commit on main
     cat << 'EOF' > README.md

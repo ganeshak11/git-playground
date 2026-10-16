@@ -2,7 +2,7 @@
 # Solution for Mission 11: Undoing an Accidental reset --hard
 # This is run by CI (via tests/run-all.sh) and shown to the learner via 'play solution'.
 
-cd "${SANDBOX}/repo"
+cd "${SANDBOX}/repo" || exit 1
 
 # Ensure local git identity is configured
 git config user.name "You"

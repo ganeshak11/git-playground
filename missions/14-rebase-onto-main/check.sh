@@ -15,7 +15,6 @@ if [[ -d ".git/rebase-merge" || -d ".git/rebase-apply" ]]; then
 fi
 
 # 3. main must be an ancestor of HEAD
-local main_head
 main_head="$(git rev-parse main 2>/dev/null)"
 assert_reachable "$main_head" "HEAD"
 

@@ -84,7 +84,7 @@ teammate_push() {
 
     echo "$content" > "${tmp_clone}/${file}"
     (
-        cd "$tmp_clone"
+        cd "$tmp_clone" || exit 1
         commit_as "$name" "$email" "$msg" "$file"
     )
 
