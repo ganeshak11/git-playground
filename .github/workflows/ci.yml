@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Lint all scripts
+        # -x follows source statements, -s bash sets the dialect.
+        # Without the shellcheck headers in sourced files, this would fail
+        # on "file has no shebang" warnings.
+        run: shellcheck -x -s bash play lib/*.sh missions/*/*.sh tests/*.sh
+
+  test:
+    needs: shellcheck
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # NO global git config here. Deliberately omitted:
+      #   git config --global init.defaultBranch main
+      #   git config --global user.name / user.email
+      #
+      # Why: setting these hides the exact bugs this project exists to catch.
+      # If our scripts forget --initial-branch=main, CI should fail —
+      # not silently pass because we papered over the default.
+      # Mission scripts set local config per repo.
+
+      - name: Run tests
+        run: bash tests/run-all.sh
+        shell: bash

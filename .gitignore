@@ -1,0 +1,12 @@
+# Sandbox lives outside the repo, but just in case
+sandbox/
+
+# Editor / OS junk
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+plan.txt

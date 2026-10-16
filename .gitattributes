@@ -1,0 +1,9 @@
+# Force LF endings on shell scripts — CRLF breaks bash with: $'\r': command not found
+# This file MUST be committed before any .sh files.
+play             text eol=lf
+*.sh             text eol=lf
+*.md             text eol=lf
+.gitattributes   text eol=lf
+
+# Windows wrapper keeps native CRLF
+*.cmd            text eol=crlf

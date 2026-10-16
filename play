@@ -1,0 +1,325 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PLAY_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+PLAY_VERSION="0.1.0"
+
+# Source libraries
+source "${PLAY_ROOT}/lib/common.sh"
+source "${PLAY_ROOT}/lib/repo.sh"
+source "${PLAY_ROOT}/lib/assert.sh"
+
+# Sandbox lives OUTSIDE the course repo.
+# Override with GIT_PLAYGROUND_SANDBOX for CI or OneDrive-avoidance.
+SANDBOX_ROOT="${GIT_PLAYGROUND_SANDBOX:-${HOME}/git-playground-sandbox}"
+PLAY_STATE_FILE="${SANDBOX_ROOT}/.play-state"
+
+# ──────────────────────────────────────────────────────────────────
+# Commands
+# ──────────────────────────────────────────────────────────────────
+
+cmd_doctor() {
+    local ok=true
+
+    # ── git exists ──
+    if ! command -v git >/dev/null 2>&1; then
+        warn "Git is not installed. Get it at https://git-scm.com"
+        ok=false
+    else
+        pass "git found: $(git --version)"
+
+        # ── git >= 2.28 (needed for --initial-branch) ──
+        local ver major minor
+        ver="$(git --version | grep -oE '[0-9]+\.[0-9]+' | head -1)"
+        major="${ver%%.*}"
+        minor="${ver#*.}"
+        if [[ "$major" -lt 2 ]] || { [[ "$major" -eq 2 ]] && [[ "$minor" -lt 28 ]]; }; then
+            warn "Git $ver is too old (need 2.28+). Update at https://git-scm.com"
+            ok=false
+        else
+            pass "git version $ver (>= 2.28)"
+        fi
+    fi
+
+    # ── user identity ──
+    if git config user.name >/dev/null 2>&1; then
+        pass "user.name: $(git config user.name)"
+    else
+        warn "No git user.name set. Run: git config --global user.name 'Your Name'"
+        ok=false
+    fi
+    if git config user.email >/dev/null 2>&1; then
+        pass "user.email: $(git config user.email)"
+    else
+        warn "No git user.email set. Run: git config --global user.email 'you@example.com'"
+        ok=false
+    fi
+
+    # ── OneDrive check ──
+    if [[ "$SANDBOX_ROOT" == *OneDrive* ]]; then
+        warn "Sandbox is inside OneDrive ($SANDBOX_ROOT)."
+        warn "Sync clients corrupt .git files. Set GIT_PLAYGROUND_SANDBOX to a path outside OneDrive."
+        ok=false
+    else
+        pass "Sandbox location: $SANDBOX_ROOT"
+    fi
+
+    # ── sandbox not inside another git repo ──
+    if mkdir -p "$SANDBOX_ROOT" 2>/dev/null \
+       && git -C "$SANDBOX_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
+        warn "Sandbox ($SANDBOX_ROOT) is inside another git repo."
+        warn "Set GIT_PLAYGROUND_SANDBOX to a standalone directory."
+        ok=false
+    else
+        pass "Sandbox is not inside another git repo"
+    fi
+
+    echo ""
+    if [[ "$ok" == true ]]; then
+        pass "Everything looks good. Run 'play start 0' to begin!"
+    else
+        fail "Fix the issues above before continuing."
+    fi
+}
+
+cmd_list() {
+    header "Missions"
+    local found=false
+    for mission_path in "${PLAY_ROOT}/missions"/*/; do
+        [[ -d "$mission_path" ]] || continue
+        found=true
+        local dir_name padded title status
+        dir_name="$(basename "$mission_path")"
+        padded="${dir_name%%-*}"
+        title="$(grep -m1 '^# ' "${mission_path}/MISSION.md" 2>/dev/null \
+                 | sed 's/^# //')" || title="$dir_name"
+
+        status=" "
+        if [[ -f "${SANDBOX_ROOT}/${padded}/.play/done" ]]; then
+            status="${GREEN}${_SYM_PASS}${RESET}"
+        fi
+
+        printf "  [%b] %s  %s\n" "$status" "${BOLD}${padded}${RESET}" "$title"
+    done
+    if [[ "$found" == false ]]; then
+        say "No missions found."
+    fi
+    echo ""
+}
+
+cmd_start() {
+    if [[ $# -lt 1 ]]; then
+        fail "Usage: play start <mission-number>"
+    fi
+    local n="$1"
+    local padded mission_dir sandbox
+    padded="$(printf '%02d' "$n")"
+    mission_dir="$(mission_dir_for "$n")"
+    sandbox="${SANDBOX_ROOT}/${padded}"
+
+    # If sandbox exists, prompt for reset (skip in non-interactive / CI)
+    if [[ -d "$sandbox" ]]; then
+        if [[ -t 0 ]]; then
+            printf "%s" "${YELLOW}Mission $n already started. Reset and restart? [y/N]${RESET} "
+            read -r answer
+            if [[ ! "$answer" =~ ^[Yy] ]]; then
+                say "Keeping existing sandbox at: $sandbox"
+                return 0
+            fi
+        fi
+        safe_delete "$sandbox"
+    fi
+
+    mkdir -p "${sandbox}/.play"
+    state_set current_mission "$padded"
+    state_set hint_level 0
+
+    SANDBOX="$sandbox"
+    export SANDBOX
+
+    # Run setup in a subshell so it can't corrupt our shell state
+    (
+        cd "$SANDBOX"
+        source "${mission_dir}/setup.sh"
+    )
+
+    echo ""
+    hr
+    while IFS= read -r line; do
+        echo "$line"
+    done < "${mission_dir}/MISSION.md"
+    hr
+    echo ""
+    say "Your workspace is: ${BOLD}${sandbox}${RESET}"
+    say "cd there and start working. Run '${BOLD}play check${RESET}' when you're done."
+}
+
+cmd_check() {
+    local padded n mission_dir sandbox
+    padded="$(require_active_mission)"
+    n=$((10#$padded))
+    mission_dir="$(mission_dir_for "$n")"
+    sandbox="${SANDBOX_ROOT}/${padded}"
+
+    if [[ ! -d "$sandbox" ]]; then
+        fail "Sandbox for mission $n doesn't exist. Run 'play start $n' first."
+    fi
+
+    SANDBOX="$sandbox"
+    export SANDBOX
+
+    # Run check in a subshell — fail() exits the subshell with 1,
+    # and set -e propagates it to us.
+    (
+        cd "$SANDBOX"
+        source "${mission_dir}/check.sh"
+    )
+
+    # If we reach here, all checks passed
+    touch "${sandbox}/.play/done"
+    echo ""
+    local next=$((n + 1))
+    if mission_exists "$next"; then
+        say "Next up: ${BOLD}play start $next${RESET}"
+    else
+        say "You've completed all available missions! Well done!"
+    fi
+}
+
+cmd_hint() {
+    local padded n mission_dir hints_file
+    padded="$(require_active_mission)"
+    n=$((10#$padded))
+    mission_dir="$(mission_dir_for "$n")"
+    hints_file="${mission_dir}/hints.md"
+
+    if [[ ! -f "$hints_file" ]]; then
+        fail "No hints available for mission $n."
+    fi
+
+    local level
+    level="$(state_get hint_level)"
+    level="${level:-0}"
+
+    # Parse hints.md: split on "## Hint" headers
+    local current_hint="" hint_index=-1 found=false
+    while IFS= read -r line; do
+        if [[ "$line" =~ ^##[[:space:]]+Hint ]]; then
+            # Hit a new header — if we already captured our hint, stop
+            if [[ "$found" == true ]]; then
+                break
+            fi
+            hint_index=$((hint_index + 1))
+            if [[ "$hint_index" -eq "$level" ]]; then
+                found=true
+                current_hint=""
+                continue
+            fi
+        elif [[ "$found" == true ]]; then
+            current_hint+="${line}"$'\n'
+        fi
+    done < "$hints_file"
+
+    if [[ "$found" == false ]]; then
+        echo ""
+        say "No more hints. Try '${BOLD}play solution $n${RESET}' if you're really stuck."
+        return 0
+    fi
+
+    echo ""
+    hr
+    echo "${YELLOW}${BOLD}Hint $((level + 1)):${RESET}"
+    echo "$current_hint"
+    hr
+
+    state_set hint_level "$((level + 1))"
+}
+
+cmd_reset() {
+    local padded n sandbox
+    padded="$(require_active_mission)"
+    n=$((10#$padded))
+    sandbox="${SANDBOX_ROOT}/${padded}"
+
+    safe_delete "$sandbox"
+    say "Sandbox for mission $n deleted."
+    echo ""
+    cmd_start "$n"
+}
+
+cmd_solution() {
+    local n="${1:-}"
+    if [[ -z "$n" ]]; then
+        local padded
+        padded="$(require_active_mission)"
+        n=$((10#$padded))
+    fi
+
+    local mission_dir solution_file
+    mission_dir="$(mission_dir_for "$n")"
+    solution_file="${mission_dir}/solution.sh"
+
+    if [[ ! -f "$solution_file" ]]; then
+        fail "No solution available for mission $n."
+    fi
+
+    # Prompt for confirmation (skip in non-interactive / CI)
+    if [[ -t 0 ]]; then
+        printf "%s" "${YELLOW}This will show the solution. Are you sure? [y/N]${RESET} "
+        read -r answer
+        if [[ ! "$answer" =~ ^[Yy] ]]; then
+            say "OK, keep trying! Run '${BOLD}play hint${RESET}' for a nudge."
+            return 0
+        fi
+    fi
+
+    echo ""
+    hr
+    echo "${DIM}# Solution for Mission $n${RESET}"
+    echo ""
+    cat "$solution_file"
+    echo ""
+    hr
+    echo ""
+    say "Type these commands yourself in your sandbox to learn."
+}
+
+cmd_help() {
+    echo ""
+    echo "${BOLD}git-playground v${PLAY_VERSION}${RESET}"
+    echo "Learn git by fixing broken repos."
+    echo ""
+    echo "${BOLD}Usage:${RESET} play <command> [args]"
+    echo ""
+    echo "${BOLD}Commands:${RESET}"
+    echo "  doctor       Check your setup (git version, identity, paths)"
+    echo "  list         Show all missions with completion status"
+    echo "  start N      Set up mission N and print the goal"
+    echo "  check        Verify your solution for the current mission"
+    echo "  hint         Get the next hint (escalating)"
+    echo "  reset        Delete current sandbox and restart the mission"
+    echo "  solution N   Show the reference solution (after confirmation)"
+    echo "  help         Show this help"
+    echo "  version      Show version"
+    echo ""
+}
+
+# ──────────────────────────────────────────────────────────────────
+# Dispatch
+# ──────────────────────────────────────────────────────────────────
+
+cmd="${1:-help}"
+shift || true
+
+case "$cmd" in
+    doctor)              cmd_doctor "$@" ;;
+    list|ls)             cmd_list "$@" ;;
+    start)               cmd_start "$@" ;;
+    check|verify)        cmd_check "$@" ;;
+    hint)                cmd_hint "$@" ;;
+    reset)               cmd_reset "$@" ;;
+    solution|solve)      cmd_solution "$@" ;;
+    help|--help|-h)      cmd_help ;;
+    version|--version)   echo "git-playground v${PLAY_VERSION}" ;;
+    *)                   fail "Unknown command: $cmd (try 'play help')" ;;
+esac
