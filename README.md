@@ -104,6 +104,7 @@ with real commits pushed by a simulated teammate.
 
 ## Documentation & Guides
 
+- [How-To Playbook](HOW_TO.md) — Step-by-step instructions on paths, workflows, and commands
 - [Core Concepts](docs/CONCEPTS.md) — The 4 mental models that demystify Git
 - [Git Cheatsheet](docs/CHEATSHEET.md) — The 20 commands you actually need, one line each
 - [Panic Manual](docs/RESET.md) — What to do when you broke something
